@@ -54,7 +54,8 @@ return ctx.to_dict()  # or to_markdown(ctx)
 
 `AdvisorConfig` + CLI flags already accept per-call overrides; env vars
 remain the local/dev default. No change to clients (Sleeper / ESPN /
-Open-Meteo / Odds) should be required for the first API cut.
+Open-Meteo / Odds / Sleeper projections) should be required for the first
+API cut.
 
 ## Agent invocation (phase 2)
 

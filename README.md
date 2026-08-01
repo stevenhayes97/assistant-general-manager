@@ -27,9 +27,16 @@ that's what an LLM agent with web search is good at. So:
 | Signal | Source | Auth |
 |---|---|---|
 | Roster, starters, official injury status | [Sleeper API](https://docs.sleeper.com/) | No |
+| Weekly projected fantasy points | Sleeper projections endpoint (RotoWire feed; undocumented) | No |
 | NFL opponent, home/away, kickoff, venue | ESPN scoreboard (public) | No |
 | Weather at kickoff (outdoor / retractable only) | [Open-Meteo](https://open-meteo.com/) | No |
 | Vegas spread / total / implied total / game-script flag | [The Odds API](https://the-odds-api.com/) | Optional free key |
+
+Projected points start from RotoWire's standard / half-PPR / PPR buckets
+(selected via league `scoring_settings.rec`), then add league reception
+bonuses such as TE premium (`bonus_rec_te` × projected TE receptions). Other
+exotic custom scoring is not fully recomputed yet. More projection sources
+can be layered later; this is the first structured number in the context bundle.
 
 ### Weather rules
 
@@ -111,3 +118,8 @@ Designed for, not built yet — see [`docs/api-design.md`](docs/api-design.md).
   `LOW_COMPETITIVENESS_TOTAL_CEILING`) are heuristics, not fitted values.
 - Odds API free tier is 500 req/mo — fine personally, not multi-user without a paid plan or caching.
 - Sleeper's full player dictionary (~5MB) is cached under `/tmp` for 12h; everything else is fetched fresh each run.
+- Weekly projections come from an **undocumented** Sleeper endpoint that
+  currently serves RotoWire numbers. No API key is required today, but the
+  path may change; the gatherer degrades gracefully if the lookup fails.
+  During NFL preseason, `season_type=pre` is often ADP-only, so the client
+  falls back to `regular` when that feed already has weekly point totals.
