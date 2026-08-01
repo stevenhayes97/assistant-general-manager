@@ -43,25 +43,29 @@ Sleeper's official injury designation, a weekly **projected_points** value
 `FANTASYPROS_API_KEY` is set, and Tank01 when `TANK01_API_KEY` is set — each
 scored with the league's PPR / half-PPR / standard bucket **plus** reception
 bonuses like TE premium; per-source values are in `projections_by_source` /
-the RW, FP, and T01 columns), and — if `ODDS_API_KEY` is configured — the
+the RW, FP, and T01 columns), LeagueLogs **market value / ranks** and
+**status blurbs** when available (trade/roster context and short
+injury/transaction notes for LLM reasoning — **not** weekly projections;
+see Mkt / OVR columns and Notes), and — if `ODDS_API_KEY` is configured — the
 Vegas spread, total, implied team total, and a rule-based "game script" flag
 (`blowout_risk_favorite`, `blowout_risk_underdog`, `low_total`, or
 `competitive`).
 
 Treat this output as ground truth for schedule/venue/weather/odds and as
 labeled structured projection numbers. Prefer the mean for ranking, but note
-large gaps across RW / FP / T01 when they matter. Treat the injury field as a
-starting point only — Sleeper's designation is often stale or lacks nuance
-(e.g. it won't tell you a player is playing through a nagging injury that's
-limiting their snap share).
+large gaps across RW / FP / T01 when they matter. Treat LeagueLogs blurbs as
+helpful leads (cite them when used) but **still verify** injury nuance with
+web research — they can lag. Treat Sleeper's injury field as a starting
+point only — designations are often stale or lack nuance (e.g. playing
+through a nagging injury that limits snap share).
 
 ## Step 2 — Fill the gaps with live research
 
-There is **no structured injury-nuance API by design**. For every
+LeagueLogs blurbs do **not** replace live research. For every
 starter-caliber player with a notable injury flag (Questionable / Doubtful /
-Out / IR / PUP / etc.), and for any close start/sit call, **actively search
-the web and read/skim recent articles and injury reports** about that
-specific player:
+Out / IR / PUP / etc.), a blurb with an `injury` signal, or any close
+start/sit call, **actively search the web and read/skim recent articles and
+injury reports** about that specific player:
 
 - Beat-writer practice-participation notes
 - "Playing through X" mentions

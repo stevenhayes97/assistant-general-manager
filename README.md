@@ -28,6 +28,7 @@ that's what an LLM agent with web search is good at. So:
 |---|---|---|
 | Roster, starters, official injury status | [Sleeper API](https://docs.sleeper.com/) | No |
 | Weekly projected fantasy points | Sleeper projections (RotoWire; undocumented) + [FantasyPros API](https://www.fantasypros.com/api-data/) + [Tank01](https://rapidapi.com/tank01/api/tank01-nfl-live-in-game-real-time-statistics-nfl) | FantasyPros / Tank01 keys optional |
+| Market value / ranks + status blurbs (LLM context) | [LeagueLogs API](https://leaguelogs.com/developers) | No (attribution required) |
 | NFL opponent, home/away, kickoff, venue | ESPN scoreboard (public) | No |
 | Weather at kickoff (outdoor / retractable only) | [Open-Meteo](https://open-meteo.com/) | No |
 | Vegas spread / total / implied total / game-script flag | [The Odds API](https://the-odds-api.com/) | Optional free key |
@@ -39,6 +40,12 @@ is set). Each source uses the league's PPR / half-PPR / standard bucket
 premium (`bonus_rec_te` × projected TE receptions). Per-source values are kept
 in `projections_by_source`. FantasyPros players join via Sportradar /
 sportsdata UUIDs; Tank01 joins via `sleeperBotID` (ESPN id fallback).
+
+[LeagueLogs](https://leaguelogs.com/developers) is always attempted (no key):
+Market Index value/ranks for the closest published profile (dynasty/redraft ×
+1QB/2QB × PPR), plus short status blurbs for rostered skill players. These are
+**reasoning aids for the subagent**, not weekly point projections. Attribution
+is included in the markdown output.
 
 ### Weather rules
 
