@@ -26,6 +26,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--roster-id", type=int, default=None, help="Overrides SLEEPER_ROSTER_ID")
     parser.add_argument("--username", default=None, help="Overrides SLEEPER_USERNAME")
     parser.add_argument("--odds-api-key", default=None, help="Overrides ODDS_API_KEY")
+    parser.add_argument(
+        "--fantasypros-api-key",
+        default=None,
+        help="Overrides FANTASYPROS_API_KEY",
+    )
     parser.add_argument("--week", type=int, default=None, help="Overrides SLEEPER_WEEK")
     parser.add_argument("--format", choices=["json", "markdown"], default="markdown")
     args = parser.parse_args(argv)
@@ -35,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
         roster_id=args.roster_id,
         username=args.username,
         odds_api_key=args.odds_api_key,
+        fantasypros_api_key=args.fantasypros_api_key,
         week=args.week,
     )
 

@@ -1,5 +1,6 @@
 from sleeper_advisor.projections import (
     PlayerProjection,
+    aggregate_projections,
     describe_reception_bonuses,
     detect_scoring_format,
     league_adjusted_points,
@@ -86,6 +87,33 @@ def test_describe_reception_bonuses():
         "TE +0.25/rec"
     ]
     assert describe_reception_bonuses({"rec": 1.0}) == []
+
+
+def test_aggregate_projections_averages_sources_with_te_premium():
+    rw = PlayerProjection(
+        source="rotowire",
+        pts_ppr=12.94,
+        pts_half_ppr=10.4,
+        pts_std=7.86,
+        bonus_rec_te=5.08,
+        position="TE",
+    )
+    fp = PlayerProjection(
+        source="fantasypros",
+        pts_ppr=13.0,
+        pts_half_ppr=10.5,
+        pts_std=8.0,
+        rec=5.0,
+        bonus_rec_te=5.0,
+        position="TE",
+    )
+    settings = {"rec": 1.0, "bonus_rec_te": 0.25}
+    agg = aggregate_projections([rw, fp], "ppr", settings)
+    assert agg is not None
+    assert agg.by_source["rotowire"] == 14.21
+    assert agg.by_source["fantasypros"] == 14.25
+    assert agg.mean == 14.23
+    assert agg.source_label == "fantasypros+rotowire"
 
 
 def test_get_week_projections_parses_rotowire_rows():

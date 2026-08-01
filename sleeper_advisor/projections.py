@@ -131,6 +131,44 @@ def describe_reception_bonuses(scoring_settings: dict[str, Any] | None) -> list[
     return notes
 
 
+@dataclass(frozen=True)
+class AggregatedProjection:
+    """League-adjusted points from one or more projection sources."""
+
+    by_source: dict[str, float]
+    mean: float | None
+
+    @property
+    def sources(self) -> list[str]:
+        return sorted(self.by_source)
+
+    @property
+    def source_label(self) -> str | None:
+        if not self.by_source:
+            return None
+        if len(self.by_source) == 1:
+            return next(iter(self.by_source))
+        return "+".join(self.sources)
+
+
+def aggregate_projections(
+    projections: list[PlayerProjection],
+    scoring: ScoringFormat,
+    scoring_settings: dict[str, Any] | None,
+) -> AggregatedProjection | None:
+    """Average league-adjusted points across available sources."""
+    by_source: dict[str, float] = {}
+    for proj in projections:
+        pts = league_adjusted_points(proj, scoring, scoring_settings)
+        if pts is None:
+            continue
+        by_source[proj.source] = pts
+    if not by_source:
+        return None
+    mean = round(sum(by_source.values()) / len(by_source), 2)
+    return AggregatedProjection(by_source=by_source, mean=mean)
+
+
 def _bonus_count_for(proj: PlayerProjection, key: str) -> float | None:
     count = getattr(proj, key)
     if count is not None:
