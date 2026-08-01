@@ -71,9 +71,10 @@ def to_markdown(ctx: AdvisorContext) -> str:
             "each scored with the league PPR/half-PPR/standard bucket."
             + bonus_note
             + " Per-source values are in the RW / FP / T01 columns."
-            + " Sources with missing, empty, or zero weekly totals are omitted from "
-            "the mean and from `projections_by_source` (FantasyPros included when "
-            "Week N rows exist)."
+            + " A source is omitted from the mean for a player only when that "
+            "source has **no** weekly row for them; **0.0 is a valid projection** "
+            "(e.g. injured/out). A feed is listed in sources above only when the "
+            "week's API response included projection rows (empty week = excluded)."
         )
         lines.append("")
     if ctx.leaguelogs_available:

@@ -46,6 +46,7 @@ class FantasyProsClient:
         self.timeout = timeout
         # Populated by the most recent projections fetch (for CLI / agent notes).
         self.last_projection_note: str | None = None
+        self.last_week_projection_rows: int = 0
 
     def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         resp = self.session.get(
@@ -104,6 +105,7 @@ class FantasyProsClient:
         is often **season** point totals, not a single week.
         """
         parsed, note = self._fetch_projections(season, int(week), scoring)
+        self.last_week_projection_rows = len(parsed)
         if note:
             self.last_projection_note = note
         return parsed
@@ -151,8 +153,6 @@ class FantasyProsClient:
             if pts_half is None:
                 pts_half = pts_std
             if pts_ppr is None and pts_half is None and pts_std is None:
-                continue
-            if (pts_ppr or 0) <= 0 and (pts_half or 0) <= 0 and (pts_std or 0) <= 0:
                 continue
 
             position = row.get("position_id") or row.get("position")

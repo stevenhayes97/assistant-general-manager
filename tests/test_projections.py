@@ -89,7 +89,7 @@ def test_describe_reception_bonuses():
     assert describe_reception_bonuses({"rec": 1.0}) == []
 
 
-def test_aggregate_projections_excludes_zero_and_empty_sources():
+def test_aggregate_projections_includes_zero_for_one_source():
     rw = PlayerProjection(
         source="rotowire",
         pts_ppr=10.0,
@@ -104,9 +104,9 @@ def test_aggregate_projections_excludes_zero_and_empty_sources():
     )
     agg = aggregate_projections([rw, fp_zero], "ppr", {"rec": 1.0})
     assert agg is not None
-    assert agg.by_source == {"rotowire": 10.0}
-    assert agg.mean == 10.0
-    assert agg.source_label == "rotowire"
+    assert agg.by_source == {"rotowire": 10.0, "fantasypros": 0.0}
+    assert agg.mean == 5.0
+    assert agg.source_label == "fantasypros+rotowire"
 
 
 def test_aggregate_projections_averages_sources_with_te_premium():

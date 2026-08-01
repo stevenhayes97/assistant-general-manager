@@ -101,6 +101,7 @@ class Tank01Client:
         self.api_key = api_key
         self.session = session or requests.Session()
         self.timeout = timeout
+        self.last_week_projection_rows: int = 0
 
     def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         resp = self.session.get(
@@ -205,6 +206,7 @@ class Tank01Client:
         data = self._get("/getNFLProjections", params=params)
         body = data.get("body") if isinstance(data, dict) else None
         if not isinstance(body, dict):
+            self.last_week_projection_rows = 0
             return {}
 
         out: dict[str, PlayerProjection] = {}
@@ -228,6 +230,7 @@ class Tank01Client:
                 team_abv = row.get("teamAbv") or row.get("team")
                 if team_abv:
                     out[str(team_abv).upper()] = proj
+        self.last_week_projection_rows = len(out)
         return out
 
     def get_projections_by_sleeper_id(

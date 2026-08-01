@@ -23,7 +23,6 @@ from .projections import (
     aggregate_projections,
     describe_reception_bonuses,
     detect_scoring_format,
-    roster_has_usable_projections,
 )
 from .tank01_client import Tank01BookConsensus, Tank01Client
 from .schedule_client import GameInfo, ScheduleClient, games_from_tank01_week
@@ -219,6 +218,7 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
 
     fantasypros_by_id: dict[str, PlayerProjection] = {}
     fantasypros_status: str | None = None
+    fantasypros_week_rows = 0
     if config.fantasypros_api_key:
         try:
             fp_client = FantasyProsClient(config.fantasypros_api_key)
@@ -230,9 +230,8 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 season_type=season_type,
                 roster_player_ids=player_ids,
             )
-            if roster_has_usable_projections(
-                fantasypros_by_id, player_ids, scoring_format, scoring_settings
-            ):
+            fantasypros_week_rows = fp_client.last_week_projection_rows
+            if fantasypros_week_rows > 0:
                 fantasypros_status = "ok"
             elif fp_client.last_projection_note:
                 fantasypros_status = fp_client.last_projection_note
@@ -248,6 +247,7 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
             fantasypros_by_id = {}
 
     tank01_by_id: dict[str, PlayerProjection] = {}
+    tank01_week_rows = 0
     tank01_odds_by_team: dict[str, Tank01BookConsensus] = {}
     tank01_odds_available = False
     depth_by_id: dict = {}
@@ -261,6 +261,7 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 scoring=scoring_format,
                 roster_player_ids=player_ids,
             )
+            tank01_week_rows = tank01.last_week_projection_rows
         except Exception:
             tank01_by_id = {}
         try:
@@ -282,9 +283,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
 
     sources_available = sorted(
         {
-            *(["rotowire"] if roster_has_usable_projections(rotowire_by_id, player_ids, scoring_format, scoring_settings) else []),
-            *(["fantasypros"] if roster_has_usable_projections(fantasypros_by_id, player_ids, scoring_format, scoring_settings) else []),
-            *(["tank01"] if roster_has_usable_projections(tank01_by_id, player_ids, scoring_format, scoring_settings) else []),
+            *(["rotowire"] if rotowire_by_id else []),
+            *(["fantasypros"] if fantasypros_week_rows > 0 else []),
+            *(["tank01"] if tank01_week_rows > 0 else []),
         }
     )
     projections_available = bool(sources_available)
