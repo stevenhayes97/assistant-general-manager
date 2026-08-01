@@ -23,6 +23,7 @@ from .projections import (
     describe_reception_bonuses,
     detect_scoring_format,
 )
+from .tank01_client import Tank01Client
 from .schedule_client import GameInfo, ScheduleClient
 from .sleeper_client import SleeperClient
 from .stadiums import Stadium, resolve_game_stadium
@@ -59,7 +60,7 @@ class PlayerContext:
     game_script_note: str | None
     # Mean of available sources after scoring-bucket + reception-bonus adjust.
     projected_points: float | None
-    projection_source: str | None  # e.g. "rotowire", "fantasypros", "fantasypros+rotowire"
+    projection_source: str | None  # e.g. "rotowire", "fantasypros+rotowire+tank01"
     projections_by_source: dict[str, float] = field(default_factory=dict)
 
 
@@ -197,10 +198,25 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         except Exception:
             fantasypros_by_id = {}
 
+    tank01_by_id: dict[str, PlayerProjection] = {}
+    if config.tank01_api_key:
+        try:
+            tank01_by_id = Tank01Client(
+                config.tank01_api_key
+            ).get_projections_by_sleeper_id(
+                sleeper_players=all_players,
+                week=int(week),
+                scoring=scoring_format,
+                roster_player_ids=player_ids,
+            )
+        except Exception:
+            tank01_by_id = {}
+
     sources_available = sorted(
         {
             *(["rotowire"] if rotowire_by_id else []),
             *(["fantasypros"] if fantasypros_by_id else []),
+            *(["tank01"] if tank01_by_id else []),
         }
     )
     projections_available = bool(sources_available)
@@ -216,7 +232,11 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         odds = odds_by_team.get(nfl_team) if nfl_team else None
         source_projs = [
             proj
-            for proj in (rotowire_by_id.get(pid), fantasypros_by_id.get(pid))
+            for proj in (
+                rotowire_by_id.get(pid),
+                fantasypros_by_id.get(pid),
+                tank01_by_id.get(pid),
+            )
             if proj is not None
         ]
         aggregated = aggregate_projections(

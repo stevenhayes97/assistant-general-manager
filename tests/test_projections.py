@@ -107,13 +107,23 @@ def test_aggregate_projections_averages_sources_with_te_premium():
         bonus_rec_te=5.0,
         position="TE",
     )
+    t01 = PlayerProjection(
+        source="tank01",
+        pts_ppr=12.0,
+        pts_half_ppr=10.0,
+        pts_std=8.0,
+        rec=4.0,
+        bonus_rec_te=4.0,
+        position="TE",
+    )
     settings = {"rec": 1.0, "bonus_rec_te": 0.25}
-    agg = aggregate_projections([rw, fp], "ppr", settings)
+    agg = aggregate_projections([rw, fp, t01], "ppr", settings)
     assert agg is not None
     assert agg.by_source["rotowire"] == 14.21
     assert agg.by_source["fantasypros"] == 14.25
-    assert agg.mean == 14.23
-    assert agg.source_label == "fantasypros+rotowire"
+    assert agg.by_source["tank01"] == 13.0
+    assert agg.mean == 13.82
+    assert agg.source_label == "fantasypros+rotowire+tank01"
 
 
 def test_get_week_projections_parses_rotowire_rows():
