@@ -18,7 +18,9 @@ from .projections import (
     PlayerProjection,
     ScoringFormat,
     SleeperProjectionsClient,
+    describe_reception_bonuses,
     detect_scoring_format,
+    league_adjusted_points,
 )
 from .schedule_client import GameInfo, ScheduleClient
 from .sleeper_client import SleeperClient
@@ -54,7 +56,7 @@ class PlayerContext:
     implied_team_total: float | None
     game_script_flag: str | None
     game_script_note: str | None
-    # RotoWire via Sleeper — standard scoring bucket matched to league rec value.
+    # RotoWire via Sleeper — scoring bucket + league reception bonuses (TE premium).
     projected_points: float | None
     projection_source: str | None
 
@@ -69,11 +71,13 @@ class AdvisorContext:
     season: int
     season_type: str
     scoring_format: ScoringFormat
-    odds_available: bool
-    projections_available: bool
+    # e.g. ["TE +0.25/rec"] when league has reception premiums applied to projs.
+    reception_bonuses: list[str] = field(default_factory=list)
+    odds_available: bool = False
+    projections_available: bool = False
     # Season type actually used for the projection fetch (may fall back to
     # "regular" when NFL state is still "pre" but weekly pts already exist).
-    projection_season_type: str | None
+    projection_season_type: str | None = None
     players: list[PlayerContext] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -126,7 +130,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
     week = config.week or state["week"] or state.get("display_week") or 1
     season = int(state["season"])
     season_type = state.get("season_type") or "regular"
-    scoring_format = detect_scoring_format(league.get("scoring_settings"))
+    scoring_settings = league.get("scoring_settings") or {}
+    scoring_format = detect_scoring_format(scoring_settings)
+    reception_bonuses = describe_reception_bonuses(scoring_settings)
 
     roster_id = config.roster_id
     if roster_id is None and config.username:
@@ -220,7 +226,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 game_script_flag=script_flag,
                 game_script_note=script_note,
                 projected_points=(
-                    projection.points_for(scoring_format) if projection else None
+                    league_adjusted_points(projection, scoring_format, scoring_settings)
+                    if projection
+                    else None
                 ),
                 projection_source=projection.source if projection else None,
             )
@@ -238,6 +246,7 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         season=season,
         season_type=season_type,
         scoring_format=scoring_format,
+        reception_bonuses=reception_bonuses,
         odds_available=odds_available,
         projections_available=projections_available,
         projection_season_type=projection_season_type,

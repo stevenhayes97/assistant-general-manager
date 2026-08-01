@@ -1,6 +1,8 @@
 from sleeper_advisor.projections import (
     PlayerProjection,
+    describe_reception_bonuses,
     detect_scoring_format,
+    league_adjusted_points,
 )
 
 
@@ -37,6 +39,53 @@ def test_player_projection_points_for_scoring():
     assert proj.points_for("ppr") == 18.5
     assert proj.points_for("half_ppr") == 16.0
     assert proj.points_for("std") == 13.5
+
+
+def test_te_premium_adds_bonus_per_projected_reception():
+    # Full PPR base + 0.25 TE premium on 5.08 projected TE receptions.
+    proj = PlayerProjection(
+        source="rotowire",
+        pts_ppr=12.94,
+        pts_half_ppr=10.4,
+        pts_std=7.86,
+        rec=5.08,
+        bonus_rec_te=5.08,
+        position="TE",
+    )
+    settings = {"rec": 1.0, "bonus_rec_te": 0.25}
+    assert league_adjusted_points(proj, "ppr", settings) == 14.21
+
+
+def test_non_te_unaffected_by_te_premium():
+    proj = PlayerProjection(
+        source="rotowire",
+        pts_ppr=15.11,
+        pts_half_ppr=13.0,
+        pts_std=10.5,
+        rec=6.0,
+        position="WR",
+    )
+    settings = {"rec": 1.0, "bonus_rec_te": 0.25}
+    assert league_adjusted_points(proj, "ppr", settings) == 15.11
+
+
+def test_te_premium_falls_back_to_rec_when_bonus_stat_missing():
+    proj = PlayerProjection(
+        source="rotowire",
+        pts_ppr=10.0,
+        pts_half_ppr=8.0,
+        pts_std=6.0,
+        rec=4.0,
+        position="TE",
+    )
+    assert league_adjusted_points(proj, "ppr", {"bonus_rec_te": 0.25}) == 11.0
+
+
+def test_describe_reception_bonuses():
+    assert describe_reception_bonuses({"rec": 1.0, "bonus_rec_te": 0.25}) == [
+        "TE +0.25/rec"
+    ]
+    assert describe_reception_bonuses({"rec": 1.0}) == []
 
 
 def test_get_week_projections_parses_rotowire_rows():

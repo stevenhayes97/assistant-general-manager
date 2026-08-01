@@ -7,8 +7,10 @@ Sleeper surfaces RotoWire projections at (no auth, free):
 This is **not** listed in https://docs.sleeper.com/. Community clients rely on
 it; treat it as best-effort and degrade gracefully if it disappears or fails.
 
-Returned point totals are RotoWire's standard / half-PPR / PPR buckets — not
-recomputed against a league's custom scoring modifiers (e.g. TE premium).
+RotoWire's `pts_ppr` / `pts_half_ppr` / `pts_std` are standard scoring buckets.
+League-specific reception bonuses (e.g. TE premium via `bonus_rec_te`) are
+applied afterward from the league's `scoring_settings` and the projection's
+counting stats (`bonus_rec_te` ≈ projected TE receptions).
 """
 
 from __future__ import annotations
@@ -28,6 +30,10 @@ _SCORING_TO_STAT_KEY = {
     "std": "pts_std",
 }
 
+# Sleeper scoring keys whose projected counting stats are added on top of the
+# standard PPR/half/std bucket (points-per-reception position premiums).
+_RECEPTION_BONUS_KEYS = ("bonus_rec_te", "bonus_rec_wr", "bonus_rec_rb")
+
 
 @dataclass(frozen=True)
 class PlayerProjection:
@@ -37,6 +43,12 @@ class PlayerProjection:
     pts_ppr: float | None
     pts_half_ppr: float | None
     pts_std: float | None
+    # Counting stats used to apply league reception bonuses (TE premium, etc.).
+    rec: float | None = None
+    bonus_rec_te: float | None = None
+    bonus_rec_wr: float | None = None
+    bonus_rec_rb: float | None = None
+    position: str | None = None
 
     def points_for(self, scoring: ScoringFormat) -> float | None:
         key = _SCORING_TO_STAT_KEY[scoring]
@@ -63,6 +75,70 @@ def detect_scoring_format(scoring_settings: dict[str, Any] | None) -> ScoringFor
     if rec_f >= 0.25:
         return "half_ppr"
     return "std"
+
+
+def league_adjusted_points(
+    proj: PlayerProjection,
+    scoring: ScoringFormat,
+    scoring_settings: dict[str, Any] | None,
+) -> float | None:
+    """Base RotoWire bucket points + league reception bonuses (TE premium, etc.).
+
+    Example (full PPR + 0.25 TE premium): a TE projected for 5.0 receptions
+    gets ``pts_ppr + 0.25 * bonus_rec_te`` (≈ 1.25 fantasy points per catch).
+    Non-TE reception bonuses from ``scoring_settings`` are applied the same way.
+    """
+    base = proj.points_for(scoring)
+    if base is None:
+        return None
+
+    adjustment = reception_bonus_adjustment(proj, scoring_settings)
+    return round(base + adjustment, 2)
+
+
+def reception_bonus_adjustment(
+    proj: PlayerProjection,
+    scoring_settings: dict[str, Any] | None,
+) -> float:
+    if not scoring_settings:
+        return 0.0
+
+    total = 0.0
+    for key in _RECEPTION_BONUS_KEYS:
+        rate = _as_float(scoring_settings.get(key))
+        if rate is None or rate == 0:
+            continue
+        count = _bonus_count_for(proj, key)
+        if count is not None:
+            total += rate * count
+    return total
+
+
+def describe_reception_bonuses(scoring_settings: dict[str, Any] | None) -> list[str]:
+    """Human-readable reception bonus rules present in league settings."""
+    if not scoring_settings:
+        return []
+    labels = {
+        "bonus_rec_te": "TE",
+        "bonus_rec_wr": "WR",
+        "bonus_rec_rb": "RB",
+    }
+    notes: list[str] = []
+    for key, label in labels.items():
+        rate = _as_float(scoring_settings.get(key))
+        if rate:
+            notes.append(f"{label} +{rate:g}/rec")
+    return notes
+
+
+def _bonus_count_for(proj: PlayerProjection, key: str) -> float | None:
+    count = getattr(proj, key)
+    if count is not None:
+        return count
+    # Fallback: if Sleeper omitted bonus_rec_te but the player is a TE, use rec.
+    if key == "bonus_rec_te" and (proj.position or "").upper() == "TE":
+        return proj.rec
+    return None
 
 
 @dataclass(frozen=True)
@@ -135,12 +211,18 @@ class SleeperProjectionsClient:
             pts_std = _as_float(stats.get("pts_std"))
             if pts_ppr is None and pts_half is None and pts_std is None:
                 continue
+            player = row.get("player") or {}
             source = (row.get("company") or "rotowire").lower()
             out[str(player_id)] = PlayerProjection(
                 source=source,
                 pts_ppr=pts_ppr,
                 pts_half_ppr=pts_half,
                 pts_std=pts_std,
+                rec=_as_float(stats.get("rec")),
+                bonus_rec_te=_as_float(stats.get("bonus_rec_te")),
+                bonus_rec_wr=_as_float(stats.get("bonus_rec_wr")),
+                bonus_rec_rb=_as_float(stats.get("bonus_rec_rb")),
+                position=player.get("position") or row.get("position"),
             )
         return out
 

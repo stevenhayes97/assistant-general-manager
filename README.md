@@ -32,9 +32,10 @@ that's what an LLM agent with web search is good at. So:
 | Weather at kickoff (outdoor / retractable only) | [Open-Meteo](https://open-meteo.com/) | No |
 | Vegas spread / total / implied total / game-script flag | [The Odds API](https://the-odds-api.com/) | Optional free key |
 
-Projected points use RotoWire's standard / half-PPR / PPR buckets, selected
-from the league's `scoring_settings.rec` value. They are **not** recomputed
-against custom league modifiers (TE premium, etc.). More projection sources
+Projected points start from RotoWire's standard / half-PPR / PPR buckets
+(selected via league `scoring_settings.rec`), then add league reception
+bonuses such as TE premium (`bonus_rec_te` × projected TE receptions). Other
+exotic custom scoring is not fully recomputed yet. More projection sources
 can be layered later; this is the first structured number in the context bundle.
 
 ### Weather rules

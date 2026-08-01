@@ -31,9 +31,17 @@ def to_markdown(ctx: AdvisorContext) -> str:
         )
         lines.append("")
     else:
+        bonus_note = ""
+        if ctx.reception_bonuses:
+            bonus_note = (
+                " League reception bonuses applied: "
+                + ", ".join(ctx.reception_bonuses)
+                + "."
+            )
         lines.append(
             "> Projected points are RotoWire totals via Sleeper's public projections "
-            "endpoint (standard/half-PPR/PPR buckets — not custom league scoring)."
+            "endpoint (PPR/half-PPR/standard bucket matched to league `rec`)."
+            + bonus_note
         )
         lines.append("")
 
