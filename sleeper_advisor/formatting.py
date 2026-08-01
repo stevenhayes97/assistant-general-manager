@@ -19,6 +19,18 @@ def to_markdown(ctx: AdvisorContext) -> str:
         + ")_",
         "",
     ]
+    if ctx.schedule_source:
+        src_line = f"> NFL schedule source: **{ctx.schedule_source}**."
+        if ctx.schedule_note:
+            src_line += f" {ctx.schedule_note}"
+        lines.append(src_line)
+        lines.append("")
+    elif ctx.schedule_note:
+        lines.append(f"> Schedule note: {ctx.schedule_note}")
+        lines.append("")
+    if ctx.fantasypros_status and ctx.fantasypros_status != "ok":
+        lines.append(f"> FantasyPros: {ctx.fantasypros_status}")
+        lines.append("")
     if not ctx.odds_available:
         lines.append(
             "> No odds API key configured (or lookup failed) -- Vegas spread/total/game-script "

@@ -33,7 +33,12 @@ Add these as **Secrets** on the Cloud Agents environment (never commit them):
 | `FANTASYPROS_API_KEY` | no | FantasyPros API key; second weekly projection source |
 | `TANK01_API_KEY` | no | RapidAPI key for Tank01 NFL; projections + multi-book odds + depth charts |
 
-When asked for start/sit advice, run the lineup-advisor flow: execute the
+When asked for start/sit advice, **delegate to the lineup-advisor subagent**
+(Task tool with `subagent_type: lineup-advisor`, or `/lineup-advisor` on
+desktop) so Grok 4.5 High runs the scripted flow. Do not substitute an inline
+main-agent summary for the subagent unless the subagent is unavailable.
+
+The subagent should run the lineup-advisor flow: execute the
 CLI for structured context, then web-search injury nuance / trends / expert
 opinion, and return recommendations with confidence levels. Do not
 fabricate injury reports or stats. Treat `projected_points` as the mean of

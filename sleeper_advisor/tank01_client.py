@@ -116,6 +116,27 @@ class Tank01Client:
         resp.raise_for_status()
         return resp.json()
 
+    def get_week_games(
+        self,
+        week: int,
+        season: int | str,
+        *,
+        season_type: str = "reg",
+    ) -> list[dict]:
+        """Schedule rows for one NFL week (``getNFLGamesForWeek``)."""
+        data = self._get(
+            "/getNFLGamesForWeek",
+            params={
+                "week": int(week),
+                "season": str(season),
+                "seasonType": season_type,
+            },
+        )
+        body = data.get("body") if isinstance(data, dict) else None
+        if not isinstance(body, list):
+            return []
+        return [row for row in body if isinstance(row, dict)]
+
     def get_id_maps(
         self, force_refresh: bool = False
     ) -> tuple[dict[str, str], dict[str, str]]:

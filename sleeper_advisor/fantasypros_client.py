@@ -2,6 +2,9 @@
 
 Docs: https://api.fantasypros.com/v2/docs
 
+Base URL: ``https://api.fantasypros.com/public/v2/json`` (the legacy
+``/v2/json`` host returns 403 for most keys).
+
 Join path to Sleeper: FantasyPros ``sportsdata_player_id`` matches Sleeper
 ``sportradar_id`` (UUID). The players directory is cached on disk (large).
 """
@@ -17,7 +20,8 @@ import requests
 
 from .projections import PlayerProjection, ScoringFormat
 
-BASE_URL = "https://api.fantasypros.com/v2/json"
+# Public docs use this base; the legacy ``/v2/json`` host returns 403 for most keys.
+BASE_URL = "https://api.fantasypros.com/public/v2/json"
 CACHE_DIR = Path("/tmp/sleeper_advisor_cache")
 PLAYERS_CACHE_TTL_SECONDS = 12 * 60 * 60
 
@@ -40,6 +44,8 @@ class FantasyProsClient:
         self.api_key = api_key
         self.session = session or requests.Session()
         self.timeout = timeout
+        # Populated by the most recent projections fetch (for CLI / agent notes).
+        self.last_projection_note: str | None = None
 
     def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         resp = self.session.get(
@@ -51,6 +57,13 @@ class FantasyProsClient:
             },
             timeout=self.timeout,
         )
+        if resp.status_code == 403:
+            raise PermissionError(
+                "FantasyPros API returned 403 Forbidden. Confirm the key at "
+                "https://secure.fantasypros.com/api-keys/request and that it is "
+                "sent as the x-api-key header. Premium projection endpoints "
+                "require an active HOF subscription."
+            )
         resp.raise_for_status()
         return resp.json()
 
@@ -87,25 +100,20 @@ class FantasyProsClient:
     ) -> dict[str, PlayerProjection]:
         """Return projections keyed by FantasyPros player id (fpid string).
 
-        Tries the requested week first. During NFL preseason, if that returns
-        no point totals, retries ``week=0`` (FantasyPros preseason convention).
+        Does not fall back to ``week=0`` — on the public/free tier that bucket
+        is often **season** point totals, not a single week.
         """
-        weeks_to_try = [int(week)]
-        if season_type == "pre" and int(week) != 0:
-            weeks_to_try.append(0)
-
-        for try_week in weeks_to_try:
-            parsed = self._fetch_projections(season, try_week, scoring)
-            if parsed:
-                return parsed
-        return {}
+        parsed, note = self._fetch_projections(season, int(week), scoring)
+        if note:
+            self.last_projection_note = note
+        return parsed
 
     def _fetch_projections(
         self,
         season: int | str,
         week: int,
         scoring: ScoringFormat,
-    ) -> dict[str, PlayerProjection]:
+    ) -> tuple[dict[str, PlayerProjection], str | None]:
         data = self._get(
             f"/nfl/{season}/projections",
             params={
@@ -114,8 +122,18 @@ class FantasyProsClient:
                 "scoring": _SCORING_PARAM[scoring],
             },
         )
+        note: str | None = None
+        if data.get("public_api_limited"):
+            tier = data.get("tier") or "unknown"
+            count = data.get("count")
+            note = (
+                f"FantasyPros tier={tier}, public_api_limited=true "
+                f"(week={week}, count={count}). Weekly projections for this "
+                "week may require premium/HOF API access."
+            )
         out: dict[str, PlayerProjection] = {}
-        for row in data.get("players") or []:
+        players = data.get("players") or []
+        for row in players:
             if not isinstance(row, dict):
                 continue
             fpid = row.get("fpid")
@@ -146,7 +164,7 @@ class FantasyProsClient:
                 bonus_rec_te=rec if (position or "").upper() == "TE" else None,
                 position=position,
             )
-        return out
+        return out, note
 
     def get_projections_by_sleeper_id(
         self,
