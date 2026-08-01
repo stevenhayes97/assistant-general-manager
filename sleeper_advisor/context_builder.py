@@ -14,13 +14,14 @@ from datetime import datetime, timezone
 
 from .config import AdvisorConfig
 from .odds_client import GameOdds, OddsClient
+from .fantasypros_client import FantasyProsClient
 from .projections import (
     PlayerProjection,
     ScoringFormat,
     SleeperProjectionsClient,
+    aggregate_projections,
     describe_reception_bonuses,
     detect_scoring_format,
-    league_adjusted_points,
 )
 from .schedule_client import GameInfo, ScheduleClient
 from .sleeper_client import SleeperClient
@@ -56,9 +57,10 @@ class PlayerContext:
     implied_team_total: float | None
     game_script_flag: str | None
     game_script_note: str | None
-    # RotoWire via Sleeper — scoring bucket + league reception bonuses (TE premium).
+    # Mean of available sources after scoring-bucket + reception-bonus adjust.
     projected_points: float | None
-    projection_source: str | None
+    projection_source: str | None  # e.g. "rotowire", "fantasypros", "fantasypros+rotowire"
+    projections_by_source: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -75,8 +77,10 @@ class AdvisorContext:
     reception_bonuses: list[str] = field(default_factory=list)
     odds_available: bool = False
     projections_available: bool = False
-    # Season type actually used for the projection fetch (may fall back to
-    # "regular" when NFL state is still "pre" but weekly pts already exist).
+    # Which projection feeds contributed at least one player this run.
+    projection_sources_available: list[str] = field(default_factory=list)
+    # Season type actually used for the Sleeper/RotoWire fetch (may fall back
+    # to "regular" when NFL state is still "pre" but weekly pts already exist).
     projection_season_type: str | None = None
     players: list[PlayerContext] = field(default_factory=list)
 
@@ -159,8 +163,10 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         except Exception:
             odds_available = False  # degrade gracefully; agent can note odds were unavailable
 
-    projections_by_id: dict[str, PlayerProjection] = {}
-    projections_available = False
+    starters = set(roster.get("starters") or [])
+    player_ids = roster.get("players") or []
+
+    rotowire_by_id: dict[str, PlayerProjection] = {}
     projection_season_type: str | None = None
     try:
         week_projections = SleeperProjectionsClient().get_week_projections(
@@ -168,17 +174,36 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
             week=int(week),
             season_type=season_type,
         )
-        projections_by_id = week_projections.by_player_id
-        projections_available = bool(projections_by_id)
-        projection_season_type = (
-            week_projections.season_type if projections_available else None
-        )
+        rotowire_by_id = week_projections.by_player_id
+        if rotowire_by_id:
+            projection_season_type = week_projections.season_type
     except Exception:
-        projections_available = False
+        rotowire_by_id = {}
         projection_season_type = None
 
-    starters = set(roster.get("starters") or [])
-    player_ids = roster.get("players") or []
+    fantasypros_by_id: dict[str, PlayerProjection] = {}
+    if config.fantasypros_api_key:
+        try:
+            fantasypros_by_id = FantasyProsClient(
+                config.fantasypros_api_key
+            ).get_projections_by_sleeper_id(
+                sleeper_players=all_players,
+                season=season,
+                week=int(week),
+                scoring=scoring_format,
+                season_type=season_type,
+                roster_player_ids=player_ids,
+            )
+        except Exception:
+            fantasypros_by_id = {}
+
+    sources_available = sorted(
+        {
+            *(["rotowire"] if rotowire_by_id else []),
+            *(["fantasypros"] if fantasypros_by_id else []),
+        }
+    )
+    projections_available = bool(sources_available)
 
     players_ctx: list[PlayerContext] = []
     for pid in player_ids:
@@ -189,7 +214,14 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         nfl_team = p.get("team")
         game: GameInfo | None = week_games.get(nfl_team) if nfl_team else None
         odds = odds_by_team.get(nfl_team) if nfl_team else None
-        projection = projections_by_id.get(pid)
+        source_projs = [
+            proj
+            for proj in (rotowire_by_id.get(pid), fantasypros_by_id.get(pid))
+            if proj is not None
+        ]
+        aggregated = aggregate_projections(
+            source_projs, scoring_format, scoring_settings
+        )
 
         stadium: Stadium | None = None
         weather_dict = None
@@ -225,12 +257,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 implied_team_total=(odds.team_implied_total.get(nfl_team) if odds and nfl_team else None),
                 game_script_flag=script_flag,
                 game_script_note=script_note,
-                projected_points=(
-                    league_adjusted_points(projection, scoring_format, scoring_settings)
-                    if projection
-                    else None
-                ),
-                projection_source=projection.source if projection else None,
+                projected_points=aggregated.mean if aggregated else None,
+                projection_source=aggregated.source_label if aggregated else None,
+                projections_by_source=dict(aggregated.by_source) if aggregated else {},
             )
         )
 
@@ -249,6 +278,7 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         reception_bonuses=reception_bonuses,
         odds_available=odds_available,
         projections_available=projections_available,
+        projection_sources_available=sources_available,
         projection_season_type=projection_season_type,
         players=players_ctx,
     )

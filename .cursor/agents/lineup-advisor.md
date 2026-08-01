@@ -38,20 +38,20 @@ week, home/away, kickoff time, venue (indoor/outdoor/retractable roof),
 weather forecast (temp/wind/precip) when the *game venue* is outdoor or
 retractable and within forecast range (domes skip weather entirely),
 Sleeper's official injury designation, a weekly **projected_points** value
-(RotoWire via Sleeper's public projections endpoint, scored with the
-league's PPR / half-PPR / standard bucket **plus** league reception bonuses
-like TE premium), and — if `ODDS_API_KEY` is configured — the Vegas spread,
-total, implied team total, and a rule-based "game script" flag
-(`blowout_risk_favorite`, `blowout_risk_underdog`, `low_total`, or
-`competitive`).
+(mean of available structured sources — RotoWire via Sleeper, and FantasyPros
+when `FANTASYPROS_API_KEY` is set — each scored with the league's
+PPR / half-PPR / standard bucket **plus** reception bonuses like TE premium;
+per-source values are in `projections_by_source` / the RW and FP columns),
+and — if `ODDS_API_KEY` is configured — the Vegas spread, total, implied team
+total, and a rule-based "game script" flag (`blowout_risk_favorite`,
+`blowout_risk_underdog`, `low_total`, or `competitive`).
 
 Treat this output as ground truth for schedule/venue/weather/odds and as
-one labeled projection source for points. Do **not** treat
-`projected_points` as a multi-platform consensus — it is RotoWire only,
-adjusted for known reception bonuses from league settings. Treat the injury
-field as a starting point only — Sleeper's designation is often stale or
-lacks nuance (e.g. it won't tell you a player is playing through a nagging
-injury that's limiting their snap share).
+labeled structured projection numbers. Prefer the mean for ranking, but note
+large RW vs FP gaps when they matter. Treat the injury field as a starting
+point only — Sleeper's designation is often stale or lacks nuance (e.g. it
+won't tell you a player is playing through a nagging injury that's limiting
+their snap share).
 
 ## Step 2 — Fill the gaps with live research
 

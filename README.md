@@ -27,16 +27,17 @@ that's what an LLM agent with web search is good at. So:
 | Signal | Source | Auth |
 |---|---|---|
 | Roster, starters, official injury status | [Sleeper API](https://docs.sleeper.com/) | No |
-| Weekly projected fantasy points | Sleeper projections endpoint (RotoWire feed; undocumented) | No |
+| Weekly projected fantasy points | Sleeper projections (RotoWire; undocumented) + [FantasyPros API](https://www.fantasypros.com/api-data/) | FantasyPros key optional |
 | NFL opponent, home/away, kickoff, venue | ESPN scoreboard (public) | No |
 | Weather at kickoff (outdoor / retractable only) | [Open-Meteo](https://open-meteo.com/) | No |
 | Vegas spread / total / implied total / game-script flag | [The Odds API](https://the-odds-api.com/) | Optional free key |
 
-Projected points start from RotoWire's standard / half-PPR / PPR buckets
-(selected via league `scoring_settings.rec`), then add league reception
-bonuses such as TE premium (`bonus_rec_te` × projected TE receptions). Other
-exotic custom scoring is not fully recomputed yet. More projection sources
-can be layered later; this is the first structured number in the context bundle.
+Projected points average every available source (RotoWire always attempted;
+FantasyPros when `FANTASYPROS_API_KEY` is set). Each source uses the league's
+PPR / half-PPR / standard bucket (`scoring_settings.rec`), then adds league
+reception bonuses such as TE premium (`bonus_rec_te` × projected TE
+receptions). Per-source values are kept in `projections_by_source`. FantasyPros
+players are joined to Sleeper via Sportradar / sportsdata UUIDs.
 
 ### Weather rules
 
@@ -89,6 +90,7 @@ As a Cursor subagent (pinned to **Grok 4.5 High**):
    - `SLEEPER_LEAGUE_ID`
    - `SLEEPER_ROSTER_ID`
    - `ODDS_API_KEY` (optional)
+   - `FANTASYPROS_API_KEY` (optional; second projection source)
 4. From desktop, web ([cursor.com/agents](https://cursor.com/agents)), or the iOS app, start an agent on this repo and ask for lineup advice (or `/lineup-advisor` on desktop).
 
 See `AGENTS.md` for cloud-specific agent instructions.
