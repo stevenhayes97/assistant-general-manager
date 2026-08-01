@@ -54,7 +54,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pip install -r requirements-dev.txt   # pytest
 cp .env.example .env
-# fill SLEEPER_LEAGUE_ID + SLEEPER_ROSTER_ID (or SLEEPER_USERNAME)
+# fill SLEEPER_LEAGUE_ID + SLEEPER_ROSTER_ID (preferred over username)
 # optional: ODDS_API_KEY from https://the-odds-api.com/
 ```
 
@@ -68,11 +68,23 @@ python -m sleeper_advisor.cli --format json > context.json
 python -m sleeper_advisor.cli --league-id <id> --roster-id <id> --week <n> --format json
 ```
 
-As a Cursor subagent:
+As a Cursor subagent (pinned to **Grok 4.5 High**):
 
 ```
 /lineup-advisor who should I start this week?
 ```
+
+## Deploy (Cursor Cloud / Mobile)
+
+1. Merge this branch (or use it as the Cloud Agent ref).
+2. Ensure `.cursor/environment.json` is present (installs Python deps on boot).
+3. In [Cloud Agents → Environments → Secrets](https://cursor.com/dashboard/cloud-agents), set:
+   - `SLEEPER_LEAGUE_ID`
+   - `SLEEPER_ROSTER_ID`
+   - `ODDS_API_KEY` (optional)
+4. From desktop, web ([cursor.com/agents](https://cursor.com/agents)), or the iOS app, start an agent on this repo and ask for lineup advice (or `/lineup-advisor` on desktop).
+
+See `AGENTS.md` for cloud-specific agent instructions.
 
 ## Tests
 
