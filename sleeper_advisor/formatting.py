@@ -9,12 +9,31 @@ def to_markdown(ctx: AdvisorContext) -> str:
     lines = [
         f"# Lineup context -- {ctx.league_name or ctx.league_id}, Week {ctx.week} ({ctx.season})",
         f"_Generated {ctx.generated_at_utc}_",
+        f"_Scoring format for projections: `{ctx.scoring_format}` "
+        f"(NFL `{ctx.season_type}`"
+        + (
+            f", projections from `{ctx.projection_season_type}`"
+            if ctx.projection_season_type
+            else ""
+        )
+        + ")_",
         "",
     ]
     if not ctx.odds_available:
         lines.append(
             "> No odds API key configured (or lookup failed) -- Vegas spread/total/game-script "
             "signals are unavailable below. Set ODDS_API_KEY to enable them."
+        )
+        lines.append("")
+    if not ctx.projections_available:
+        lines.append(
+            "> Weekly projections unavailable (Sleeper/RotoWire lookup failed or returned empty)."
+        )
+        lines.append("")
+    else:
+        lines.append(
+            "> Projected points are RotoWire totals via Sleeper's public projections "
+            "endpoint (standard/half-PPR/PPR buckets — not custom league scoring)."
         )
         lines.append("")
 
@@ -49,15 +68,15 @@ def to_markdown(ctx: AdvisorContext) -> str:
 def _table(players: list[PlayerContext]) -> str:
     header = (
         "| Player | Pos | Team | Opp | H/A | Kickoff (UTC) | Roof | Wind | Precip% | "
-        "Spread | Total | Implied | Injury | Script |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+        "Proj | Src | Spread | Total | Implied | Injury | Script |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     )
     rows = [header]
     for p in players:
         w = p.weather or {}
         rows.append(
             "| {name} | {pos} | {team} | {opp} | {ha} | {ko} | {roof} | {wind} | {precip} | "
-            "{spread} | {total} | {implied} | {injury} | {script} |".format(
+            "{proj} | {src} | {spread} | {total} | {implied} | {injury} | {script} |".format(
                 name=p.name,
                 pos=p.position,
                 team=p.nfl_team or "-",
@@ -67,6 +86,8 @@ def _table(players: list[PlayerContext]) -> str:
                 roof=p.venue_roof or "-",
                 wind=w.get("wind_mph", "-"),
                 precip=w.get("precipitation_probability_pct", "-"),
+                proj=p.projected_points if p.projected_points is not None else "-",
+                src=p.projection_source or "-",
                 spread=p.vegas_spread if p.vegas_spread is not None else "-",
                 total=p.vegas_total if p.vegas_total is not None else "-",
                 implied=p.implied_team_total if p.implied_team_total is not None else "-",

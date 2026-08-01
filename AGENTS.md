@@ -34,11 +34,13 @@ Add these as **Secrets** on the Cloud Agents environment (never commit them):
 When asked for start/sit advice, run the lineup-advisor flow: execute the
 CLI for structured context, then web-search injury nuance / trends / expert
 opinion, and return recommendations with confidence levels. Do not
-fabricate injury reports or stats.
+fabricate injury reports or stats. Treat `projected_points` in the CLI
+output as one labeled source (RotoWire via Sleeper), not a multi-analyst
+consensus.
 
 Allowed outbound APIs (all free / public except Odds):
 
-- `api.sleeper.app`
+- `api.sleeper.app` (includes undocumented `/projections/nfl/...` — no key)
 - `site.api.espn.com`
 - `api.open-meteo.com`
 - `api.the-odds-api.com` (if key configured)

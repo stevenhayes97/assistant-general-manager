@@ -14,6 +14,12 @@ from datetime import datetime, timezone
 
 from .config import AdvisorConfig
 from .odds_client import GameOdds, OddsClient
+from .projections import (
+    PlayerProjection,
+    ScoringFormat,
+    SleeperProjectionsClient,
+    detect_scoring_format,
+)
 from .schedule_client import GameInfo, ScheduleClient
 from .sleeper_client import SleeperClient
 from .stadiums import Stadium, resolve_game_stadium
@@ -48,6 +54,9 @@ class PlayerContext:
     implied_team_total: float | None
     game_script_flag: str | None
     game_script_note: str | None
+    # RotoWire via Sleeper — standard scoring bucket matched to league rec value.
+    projected_points: float | None
+    projection_source: str | None
 
 
 @dataclass
@@ -58,7 +67,13 @@ class AdvisorContext:
     roster_id: int
     week: int
     season: int
+    season_type: str
+    scoring_format: ScoringFormat
     odds_available: bool
+    projections_available: bool
+    # Season type actually used for the projection fetch (may fall back to
+    # "regular" when NFL state is still "pre" but weekly pts already exist).
+    projection_season_type: str | None
     players: list[PlayerContext] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -110,6 +125,8 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
 
     week = config.week or state["week"] or state.get("display_week") or 1
     season = int(state["season"])
+    season_type = state.get("season_type") or "regular"
+    scoring_format = detect_scoring_format(league.get("scoring_settings"))
 
     roster_id = config.roster_id
     if roster_id is None and config.username:
@@ -136,6 +153,24 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         except Exception:
             odds_available = False  # degrade gracefully; agent can note odds were unavailable
 
+    projections_by_id: dict[str, PlayerProjection] = {}
+    projections_available = False
+    projection_season_type: str | None = None
+    try:
+        week_projections = SleeperProjectionsClient().get_week_projections(
+            season=season,
+            week=int(week),
+            season_type=season_type,
+        )
+        projections_by_id = week_projections.by_player_id
+        projections_available = bool(projections_by_id)
+        projection_season_type = (
+            week_projections.season_type if projections_available else None
+        )
+    except Exception:
+        projections_available = False
+        projection_season_type = None
+
     starters = set(roster.get("starters") or [])
     player_ids = roster.get("players") or []
 
@@ -148,6 +183,7 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         nfl_team = p.get("team")
         game: GameInfo | None = week_games.get(nfl_team) if nfl_team else None
         odds = odds_by_team.get(nfl_team) if nfl_team else None
+        projection = projections_by_id.get(pid)
 
         stadium: Stadium | None = None
         weather_dict = None
@@ -183,6 +219,10 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 implied_team_total=(odds.team_implied_total.get(nfl_team) if odds and nfl_team else None),
                 game_script_flag=script_flag,
                 game_script_note=script_note,
+                projected_points=(
+                    projection.points_for(scoring_format) if projection else None
+                ),
+                projection_source=projection.source if projection else None,
             )
         )
 
@@ -196,7 +236,11 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         roster_id=roster_id,
         week=week,
         season=season,
+        season_type=season_type,
+        scoring_format=scoring_format,
         odds_available=odds_available,
+        projections_available=projections_available,
+        projection_season_type=projection_season_type,
         players=players_ctx,
     )
 
