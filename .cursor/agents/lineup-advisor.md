@@ -46,18 +46,22 @@ bonuses like TE premium; per-source values are in `projections_by_source` /
 the RW, FP, and T01 columns), LeagueLogs **market value / ranks** and
 **status blurbs** when available (trade/roster context and short
 injury/transaction notes for LLM reasoning — **not** weekly projections;
-see Mkt / OVR columns and Notes), and — if `ODDS_API_KEY` is configured — the
-Vegas spread, total, implied team total, and a rule-based "game script" flag
-(`blowout_risk_favorite`, `blowout_risk_underdog`, `low_total`, or
-`competitive`).
+see Mkt / OVR columns and Notes), Tank01 **depth-chart roles** when keyed
+(e.g. WR2 + chart line in Notes — reasoning aid, not snap share), and —
+if `ODDS_API_KEY` is configured — the Vegas spread, total, implied team
+total, and a rule-based "game script" flag (`blowout_risk_favorite`,
+`blowout_risk_underdog`, `low_total`, or `competitive`). When Tank01 odds
+are present, treat them as a **multi-book second opinion** (median +
+disagreement notes); keep Odds API as the primary script input unless
+books clearly disagree.
 
 Treat this output as ground truth for schedule/venue/weather/odds and as
 labeled structured projection numbers. Prefer the mean for ranking, but note
-large gaps across RW / FP / T01 when they matter. Treat LeagueLogs blurbs as
-helpful leads (cite them when used) but **still verify** injury nuance with
-web research — they can lag. Treat Sleeper's injury field as a starting
-point only — designations are often stale or lack nuance (e.g. playing
-through a nagging injury that limits snap share).
+large gaps across RW / FP / T01 when they matter. Treat LeagueLogs blurbs and
+depth-chart lines as helpful leads (cite them when used) but **still verify**
+injury nuance with web research — they can lag. Treat Sleeper's injury field
+as a starting point only — designations are often stale or lack nuance (e.g.
+playing through a nagging injury that limits snap share).
 
 ## Step 2 — Fill the gaps with live research
 

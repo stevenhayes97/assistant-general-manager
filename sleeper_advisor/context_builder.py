@@ -24,7 +24,7 @@ from .projections import (
     describe_reception_bonuses,
     detect_scoring_format,
 )
-from .tank01_client import Tank01Client
+from .tank01_client import Tank01BookConsensus, Tank01Client
 from .schedule_client import GameInfo, ScheduleClient
 from .sleeper_client import SleeperClient
 from .stadiums import Stadium, resolve_game_stadium
@@ -63,6 +63,13 @@ class PlayerContext:
     projected_points: float | None
     projection_source: str | None  # e.g. "rotowire", "fantasypros+rotowire+tank01"
     projections_by_source: dict[str, float] = field(default_factory=dict)
+    # Tank01 multi-book odds (second opinion vs Odds API primary line).
+    tank01_spread: float | None = None
+    tank01_favorite: str | None = None
+    tank01_total: float | None = None
+    tank01_implied_team_total: float | None = None
+    tank01_books_count: int | None = None
+    tank01_odds_note: str | None = None
     # LeagueLogs Market Index + status blurb (LLM reasoning aids; not projections).
     market_value: float | None = None
     market_overall_rank: int | None = None
@@ -70,6 +77,10 @@ class PlayerContext:
     status_blurb: str | None = None
     status_blurb_signals: list[str] = field(default_factory=list)
     status_blurb_at: str | None = None
+    # Tank01 depth chart (LLM reasoning; not a projection).
+    depth_role: str | None = None  # e.g. "WR2"
+    depth_order: int | None = None
+    depth_chart_line: str | None = None
 
 
 @dataclass
@@ -85,6 +96,7 @@ class AdvisorContext:
     # e.g. ["TE +0.25/rec"] when league has reception premiums applied to projs.
     reception_bonuses: list[str] = field(default_factory=list)
     odds_available: bool = False
+    tank01_odds_available: bool = False
     projections_available: bool = False
     # Which projection feeds contributed at least one player this run.
     projection_sources_available: list[str] = field(default_factory=list)
@@ -94,6 +106,7 @@ class AdvisorContext:
     leaguelogs_available: bool = False
     leaguelogs_profile: str | None = None
     leaguelogs_attribution: dict | None = None  # {text, url} — required by ToS
+    tank01_depth_available: bool = False
     players: list[PlayerContext] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -210,11 +223,14 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
             fantasypros_by_id = {}
 
     tank01_by_id: dict[str, PlayerProjection] = {}
+    tank01_odds_by_team: dict[str, Tank01BookConsensus] = {}
+    tank01_odds_available = False
+    depth_by_id: dict = {}
+    tank01_depth_available = False
     if config.tank01_api_key:
+        tank01 = Tank01Client(config.tank01_api_key)
         try:
-            tank01_by_id = Tank01Client(
-                config.tank01_api_key
-            ).get_projections_by_sleeper_id(
+            tank01_by_id = tank01.get_projections_by_sleeper_id(
                 sleeper_players=all_players,
                 week=int(week),
                 scoring=scoring_format,
@@ -222,6 +238,22 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
             )
         except Exception:
             tank01_by_id = {}
+        try:
+            kickoffs = [g.kickoff_utc for g in week_games.values()]
+            tank01_odds_by_team = tank01.get_odds_for_kickoffs(kickoffs)
+            tank01_odds_available = bool(tank01_odds_by_team)
+        except Exception:
+            tank01_odds_by_team = {}
+            tank01_odds_available = False
+        try:
+            depth_by_id = tank01.get_depth_spots_by_sleeper_id(
+                sleeper_players=all_players,
+                roster_player_ids=player_ids,
+            )
+            tank01_depth_available = bool(depth_by_id)
+        except Exception:
+            depth_by_id = {}
+            tank01_depth_available = False
 
     sources_available = sorted(
         {
@@ -292,6 +324,8 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
 
         market = market_by_id.get(pid)
         blurb = blurbs_by_id.get(pid)
+        t01_odds = tank01_odds_by_team.get(nfl_team) if nfl_team else None
+        depth = depth_by_id.get(pid)
 
         players_ctx.append(
             PlayerContext(
@@ -315,6 +349,16 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 implied_team_total=(odds.team_implied_total.get(nfl_team) if odds and nfl_team else None),
                 game_script_flag=script_flag,
                 game_script_note=script_note,
+                tank01_spread=t01_odds.spread if t01_odds else None,
+                tank01_favorite=t01_odds.favorite if t01_odds else None,
+                tank01_total=t01_odds.total if t01_odds else None,
+                tank01_implied_team_total=(
+                    t01_odds.team_implied_total.get(nfl_team)
+                    if t01_odds and nfl_team
+                    else None
+                ),
+                tank01_books_count=t01_odds.books_count if t01_odds else None,
+                tank01_odds_note=t01_odds.note if t01_odds else None,
                 projected_points=aggregated.mean if aggregated else None,
                 projection_source=aggregated.source_label if aggregated else None,
                 projections_by_source=dict(aggregated.by_source) if aggregated else {},
@@ -324,6 +368,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 status_blurb=blurb.text if blurb else None,
                 status_blurb_signals=list(blurb.signals) if blurb else [],
                 status_blurb_at=blurb.generated_at if blurb else None,
+                depth_role=depth.role_label if depth else None,
+                depth_order=depth.depth_order if depth else None,
+                depth_chart_line=depth.chart_line if depth else None,
             )
         )
 
@@ -341,12 +388,14 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         scoring_format=scoring_format,
         reception_bonuses=reception_bonuses,
         odds_available=odds_available,
+        tank01_odds_available=tank01_odds_available,
         projections_available=projections_available,
         projection_sources_available=sources_available,
         projection_season_type=projection_season_type,
         leaguelogs_available=leaguelogs_available,
         leaguelogs_profile=leaguelogs_profile,
         leaguelogs_attribution=leaguelogs_attribution,
+        tank01_depth_available=tank01_depth_available,
         players=players_ctx,
     )
 

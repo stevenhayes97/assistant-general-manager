@@ -31,7 +31,7 @@ Add these as **Secrets** on the Cloud Agents environment (never commit them):
 | `SLEEPER_ROSTER_ID` | yes | Numeric roster ID in that league |
 | `ODDS_API_KEY` | no | Free key from the-odds-api.com; enables game-script flags |
 | `FANTASYPROS_API_KEY` | no | FantasyPros API key; second weekly projection source |
-| `TANK01_API_KEY` | no | RapidAPI key for Tank01 NFL; third weekly projection source |
+| `TANK01_API_KEY` | no | RapidAPI key for Tank01 NFL; projections + multi-book odds + depth charts |
 
 When asked for start/sit advice, run the lineup-advisor flow: execute the
 CLI for structured context, then web-search injury nuance / trends / expert

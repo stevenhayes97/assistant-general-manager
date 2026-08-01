@@ -25,6 +25,20 @@ def to_markdown(ctx: AdvisorContext) -> str:
             "signals are unavailable below. Set ODDS_API_KEY to enable them."
         )
         lines.append("")
+    if ctx.tank01_odds_available:
+        lines.append(
+            "> Tank01 multi-book odds are a **second opinion** (median across "
+            "sportsbooks). Primary Spread/Total/Implied/Script columns still "
+            "come from The Odds API when configured; Tank01 consensus and "
+            "disagreement notes appear in Notes."
+        )
+        lines.append("")
+    if ctx.tank01_depth_available:
+        lines.append(
+            "> Tank01 depth-chart roles (e.g. WR2) are LLM reasoning aids — "
+            "read the chart line in Notes; they are not snap-share guarantees."
+        )
+        lines.append("")
     if not ctx.projections_available:
         lines.append(
             "> Weekly projections unavailable "
@@ -92,6 +106,21 @@ def to_markdown(ctx: AdvisorContext) -> str:
             sig = f" [{', '.join(p.status_blurb_signals)}]" if p.status_blurb_signals else ""
             when = f" ({p.status_blurb_at})" if p.status_blurb_at else ""
             notes.append(f"blurb{sig}{when}: {p.status_blurb}")
+        if p.depth_role or p.depth_chart_line:
+            depth_bits = []
+            if p.depth_role:
+                depth_bits.append(p.depth_role)
+            if p.depth_chart_line:
+                depth_bits.append(p.depth_chart_line)
+            notes.append("depth: " + " — ".join(depth_bits))
+        if p.tank01_odds_note or p.tank01_spread is not None:
+            if p.tank01_odds_note:
+                notes.append(f"tank01 odds: {p.tank01_odds_note}")
+            else:
+                notes.append(
+                    f"tank01 odds: spread {p.tank01_spread}, total {p.tank01_total} "
+                    f"({p.tank01_books_count or '?'} books)"
+                )
         if p.weather and p.weather.get("note"):
             notes.append(f"weather: {p.weather['note']}")
         if p.game_script_note:
@@ -105,8 +134,8 @@ def to_markdown(ctx: AdvisorContext) -> str:
 def _table(players: list[PlayerContext]) -> str:
     header = (
         "| Player | Pos | Team | Opp | H/A | Kickoff (UTC) | Roof | Wind | Precip% | "
-        "Proj | RW | FP | T01 | Mkt | OVR | Spread | Total | Implied | Injury | Script |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+        "Proj | RW | FP | T01 | Mkt | OVR | Depth | Spread | Total | Implied | Injury | Script |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     )
     rows = [header]
     for p in players:
@@ -114,8 +143,8 @@ def _table(players: list[PlayerContext]) -> str:
         by_src = p.projections_by_source or {}
         rows.append(
             "| {name} | {pos} | {team} | {opp} | {ha} | {ko} | {roof} | {wind} | {precip} | "
-            "{proj} | {rw} | {fp} | {t01} | {mkt} | {ovr} | {spread} | {total} | {implied} | "
-            "{injury} | {script} |".format(
+            "{proj} | {rw} | {fp} | {t01} | {mkt} | {ovr} | {depth} | {spread} | {total} | "
+            "{implied} | {injury} | {script} |".format(
                 name=p.name,
                 pos=p.position,
                 team=p.nfl_team or "-",
@@ -131,6 +160,7 @@ def _table(players: list[PlayerContext]) -> str:
                 t01=by_src.get("tank01", "-"),
                 mkt=p.market_value if p.market_value is not None else "-",
                 ovr=p.market_overall_rank if p.market_overall_rank is not None else "-",
+                depth=p.depth_role or "-",
                 spread=p.vegas_spread if p.vegas_spread is not None else "-",
                 total=p.vegas_total if p.vegas_total is not None else "-",
                 implied=p.implied_team_total if p.implied_team_total is not None else "-",
