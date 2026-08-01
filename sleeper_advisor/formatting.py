@@ -12,7 +12,7 @@ def to_markdown(ctx: AdvisorContext) -> str:
         f"_Scoring format for projections: `{ctx.scoring_format}` "
         f"(NFL `{ctx.season_type}`"
         + (
-            f", projections from `{ctx.projection_season_type}`"
+            f", Sleeper/RotoWire season_type `{ctx.projection_season_type}`"
             if ctx.projection_season_type
             else ""
         )
@@ -27,10 +27,11 @@ def to_markdown(ctx: AdvisorContext) -> str:
         lines.append("")
     if not ctx.projections_available:
         lines.append(
-            "> Weekly projections unavailable (Sleeper/RotoWire lookup failed or returned empty)."
+            "> Weekly projections unavailable (no RotoWire/FantasyPros totals returned)."
         )
         lines.append("")
     else:
+        sources = ", ".join(ctx.projection_sources_available) or "unknown"
         bonus_note = ""
         if ctx.reception_bonuses:
             bonus_note = (
@@ -39,9 +40,10 @@ def to_markdown(ctx: AdvisorContext) -> str:
                 + "."
             )
         lines.append(
-            "> Projected points are RotoWire totals via Sleeper's public projections "
-            "endpoint (PPR/half-PPR/standard bucket matched to league `rec`)."
+            f"> Projected points are the mean of available sources ({sources}), "
+            "each scored with the league PPR/half-PPR/standard bucket."
             + bonus_note
+            + " Per-source values are in the RW / FP columns."
         )
         lines.append("")
 
@@ -76,15 +78,16 @@ def to_markdown(ctx: AdvisorContext) -> str:
 def _table(players: list[PlayerContext]) -> str:
     header = (
         "| Player | Pos | Team | Opp | H/A | Kickoff (UTC) | Roof | Wind | Precip% | "
-        "Proj | Src | Spread | Total | Implied | Injury | Script |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+        "Proj | RW | FP | Spread | Total | Implied | Injury | Script |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     )
     rows = [header]
     for p in players:
         w = p.weather or {}
+        by_src = p.projections_by_source or {}
         rows.append(
             "| {name} | {pos} | {team} | {opp} | {ha} | {ko} | {roof} | {wind} | {precip} | "
-            "{proj} | {src} | {spread} | {total} | {implied} | {injury} | {script} |".format(
+            "{proj} | {rw} | {fp} | {spread} | {total} | {implied} | {injury} | {script} |".format(
                 name=p.name,
                 pos=p.position,
                 team=p.nfl_team or "-",
@@ -95,7 +98,8 @@ def _table(players: list[PlayerContext]) -> str:
                 wind=w.get("wind_mph", "-"),
                 precip=w.get("precipitation_probability_pct", "-"),
                 proj=p.projected_points if p.projected_points is not None else "-",
-                src=p.projection_source or "-",
+                rw=by_src.get("rotowire", "-"),
+                fp=by_src.get("fantasypros", "-"),
                 spread=p.vegas_spread if p.vegas_spread is not None else "-",
                 total=p.vegas_total if p.vegas_total is not None else "-",
                 implied=p.implied_team_total if p.implied_team_total is not None else "-",

@@ -25,6 +25,7 @@ class AdvisorConfig:
     roster_id: int | None
     username: str | None
     odds_api_key: str | None
+    fantasypros_api_key: str | None
     week: int | None
 
     def require_league_id(self) -> str:
@@ -43,6 +44,7 @@ def load_config(
     roster_id: int | None = None,
     username: str | None = None,
     odds_api_key: str | None = None,
+    fantasypros_api_key: str | None = None,
     week: int | None = None,
 ) -> AdvisorConfig:
     """Build config from explicit args first, falling back to env vars."""
@@ -56,5 +58,8 @@ def load_config(
         roster_id=roster_id if roster_id is not None else env_int("SLEEPER_ROSTER_ID"),
         username=username or os.environ.get("SLEEPER_USERNAME") or None,
         odds_api_key=odds_api_key or os.environ.get("ODDS_API_KEY") or None,
+        fantasypros_api_key=(
+            fantasypros_api_key or os.environ.get("FANTASYPROS_API_KEY") or None
+        ),
         week=week if week is not None else env_int("SLEEPER_WEEK"),
     )
