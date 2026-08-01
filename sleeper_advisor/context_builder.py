@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from .config import AdvisorConfig
 from .odds_client import GameOdds, OddsClient
 from .fantasypros_client import FantasyProsClient
+from .leaguelogs_client import LeagueLogsClient, skill_position_ids
 from .projections import (
     PlayerProjection,
     ScoringFormat,
@@ -62,6 +63,13 @@ class PlayerContext:
     projected_points: float | None
     projection_source: str | None  # e.g. "rotowire", "fantasypros+rotowire+tank01"
     projections_by_source: dict[str, float] = field(default_factory=dict)
+    # LeagueLogs Market Index + status blurb (LLM reasoning aids; not projections).
+    market_value: float | None = None
+    market_overall_rank: int | None = None
+    market_position_rank: int | None = None
+    status_blurb: str | None = None
+    status_blurb_signals: list[str] = field(default_factory=list)
+    status_blurb_at: str | None = None
 
 
 @dataclass
@@ -83,6 +91,9 @@ class AdvisorContext:
     # Season type actually used for the Sleeper/RotoWire fetch (may fall back
     # to "regular" when NFL state is still "pre" but weekly pts already exist).
     projection_season_type: str | None = None
+    leaguelogs_available: bool = False
+    leaguelogs_profile: str | None = None
+    leaguelogs_attribution: dict | None = None  # {text, url} — required by ToS
     players: list[PlayerContext] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -221,6 +232,30 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
     )
     projections_available = bool(sources_available)
 
+    leaguelogs_available = False
+    leaguelogs_profile: str | None = None
+    leaguelogs_attribution: dict | None = None
+    market_by_id: dict = {}
+    blurbs_by_id: dict = {}
+    try:
+        ll = LeagueLogsClient()
+        leaguelogs_profile = LeagueLogsClient.select_profile(league, scoring_format)
+        market_by_id, attribution = ll.get_market_values(leaguelogs_profile)
+        if attribution:
+            leaguelogs_attribution = {
+                "text": attribution.text,
+                "url": attribution.url,
+            }
+        skill_ids = skill_position_ids(player_ids, all_players)
+        blurbs_by_id = ll.get_blurbs(skill_ids)
+        leaguelogs_available = bool(market_by_id or blurbs_by_id)
+    except Exception:
+        leaguelogs_available = False
+        leaguelogs_profile = None
+        leaguelogs_attribution = None
+        market_by_id = {}
+        blurbs_by_id = {}
+
     players_ctx: list[PlayerContext] = []
     for pid in player_ids:
         p = all_players.get(pid)
@@ -255,6 +290,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
             classify_game_script(nfl_team, odds) if nfl_team else (None, None)
         )
 
+        market = market_by_id.get(pid)
+        blurb = blurbs_by_id.get(pid)
+
         players_ctx.append(
             PlayerContext(
                 player_id=pid,
@@ -280,6 +318,12 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 projected_points=aggregated.mean if aggregated else None,
                 projection_source=aggregated.source_label if aggregated else None,
                 projections_by_source=dict(aggregated.by_source) if aggregated else {},
+                market_value=market.value if market else None,
+                market_overall_rank=market.overall_rank if market else None,
+                market_position_rank=market.position_rank if market else None,
+                status_blurb=blurb.text if blurb else None,
+                status_blurb_signals=list(blurb.signals) if blurb else [],
+                status_blurb_at=blurb.generated_at if blurb else None,
             )
         )
 
@@ -300,6 +344,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         projections_available=projections_available,
         projection_sources_available=sources_available,
         projection_season_type=projection_season_type,
+        leaguelogs_available=leaguelogs_available,
+        leaguelogs_profile=leaguelogs_profile,
+        leaguelogs_attribution=leaguelogs_attribution,
         players=players_ctx,
     )
 

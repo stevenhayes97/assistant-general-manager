@@ -46,6 +46,7 @@ Allowed outbound APIs (all free / public except Odds / FantasyPros / Tank01):
 - `api.sleeper.app` (includes undocumented `/projections/nfl/...` — no key)
 - `api.fantasypros.com` (if `FANTASYPROS_API_KEY` configured)
 - `tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com` (if `TANK01_API_KEY` configured)
+- `developer.leaguelogs.com` (no key; Market Index values + status blurbs — attribute)
 - `site.api.espn.com`
 - `api.open-meteo.com`
 - `api.the-odds-api.com` (if key configured)
