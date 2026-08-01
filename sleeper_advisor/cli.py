@@ -31,6 +31,11 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Overrides FANTASYPROS_API_KEY",
     )
+    parser.add_argument(
+        "--tank01-api-key",
+        default=None,
+        help="Overrides TANK01_API_KEY (RapidAPI key for Tank01 NFL)",
+    )
     parser.add_argument("--week", type=int, default=None, help="Overrides SLEEPER_WEEK")
     parser.add_argument("--format", choices=["json", "markdown"], default="markdown")
     args = parser.parse_args(argv)
@@ -41,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         username=args.username,
         odds_api_key=args.odds_api_key,
         fantasypros_api_key=args.fantasypros_api_key,
+        tank01_api_key=args.tank01_api_key,
         week=args.week,
     )
 

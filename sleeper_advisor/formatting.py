@@ -27,7 +27,8 @@ def to_markdown(ctx: AdvisorContext) -> str:
         lines.append("")
     if not ctx.projections_available:
         lines.append(
-            "> Weekly projections unavailable (no RotoWire/FantasyPros totals returned)."
+            "> Weekly projections unavailable "
+            "(no RotoWire/FantasyPros/Tank01 totals returned)."
         )
         lines.append("")
     else:
@@ -43,7 +44,7 @@ def to_markdown(ctx: AdvisorContext) -> str:
             f"> Projected points are the mean of available sources ({sources}), "
             "each scored with the league PPR/half-PPR/standard bucket."
             + bonus_note
-            + " Per-source values are in the RW / FP columns."
+            + " Per-source values are in the RW / FP / T01 columns."
         )
         lines.append("")
 
@@ -78,8 +79,8 @@ def to_markdown(ctx: AdvisorContext) -> str:
 def _table(players: list[PlayerContext]) -> str:
     header = (
         "| Player | Pos | Team | Opp | H/A | Kickoff (UTC) | Roof | Wind | Precip% | "
-        "Proj | RW | FP | Spread | Total | Implied | Injury | Script |\n"
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
+        "Proj | RW | FP | T01 | Spread | Total | Implied | Injury | Script |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"
     )
     rows = [header]
     for p in players:
@@ -87,7 +88,7 @@ def _table(players: list[PlayerContext]) -> str:
         by_src = p.projections_by_source or {}
         rows.append(
             "| {name} | {pos} | {team} | {opp} | {ha} | {ko} | {roof} | {wind} | {precip} | "
-            "{proj} | {rw} | {fp} | {spread} | {total} | {implied} | {injury} | {script} |".format(
+            "{proj} | {rw} | {fp} | {t01} | {spread} | {total} | {implied} | {injury} | {script} |".format(
                 name=p.name,
                 pos=p.position,
                 team=p.nfl_team or "-",
@@ -100,6 +101,7 @@ def _table(players: list[PlayerContext]) -> str:
                 proj=p.projected_points if p.projected_points is not None else "-",
                 rw=by_src.get("rotowire", "-"),
                 fp=by_src.get("fantasypros", "-"),
+                t01=by_src.get("tank01", "-"),
                 spread=p.vegas_spread if p.vegas_spread is not None else "-",
                 total=p.vegas_total if p.vegas_total is not None else "-",
                 implied=p.implied_team_total if p.implied_team_total is not None else "-",

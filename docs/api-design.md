@@ -28,6 +28,7 @@ Request body (JSON):
 | `week` | int | no | Defaults to Sleeper NFL state week |
 | `odds_api_key` | string | no | Optional; omit to skip Vegas/game-script |
 | `fantasypros_api_key` | string | no | Optional; omit to skip FantasyPros projections |
+| `tank01_api_key` | string | no | Optional; omit to skip Tank01 projections |
 | `format` | `"json"` \| `"markdown"` | no | Default `json` |
 
 Response: the existing `AdvisorContext.to_dict()` payload (or markdown
@@ -48,6 +49,7 @@ config = AdvisorConfig(
     username=body.username,
     odds_api_key=body.odds_api_key,  # or a server-side key pool later
     fantasypros_api_key=body.fantasypros_api_key,
+    tank01_api_key=body.tank01_api_key,
     week=body.week,
 )
 ctx = build_context(config)
