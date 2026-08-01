@@ -25,7 +25,7 @@ from .projections import (
     detect_scoring_format,
 )
 from .tank01_client import Tank01BookConsensus, Tank01Client
-from .schedule_client import GameInfo, ScheduleClient
+from .schedule_client import GameInfo, ScheduleClient, games_from_tank01_week
 from .sleeper_client import SleeperClient
 from .stadiums import Stadium, resolve_game_stadium
 from .weather_client import WeatherClient, WeatherForecast
@@ -107,6 +107,9 @@ class AdvisorContext:
     leaguelogs_profile: str | None = None
     leaguelogs_attribution: dict | None = None  # {text, url} — required by ToS
     tank01_depth_available: bool = False
+    schedule_source: str | None = None
+    schedule_note: str | None = None
+    fantasypros_status: str | None = None
     players: list[PlayerContext] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -157,6 +160,8 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
     state = sleeper.get_nfl_state()
 
     week = config.week or state["week"] or state.get("display_week") or 1
+    if week == 0:
+        week = config.week or 1
     season = int(state["season"])
     season_type = state.get("season_type") or "regular"
     scoring_settings = league.get("scoring_settings") or {}
@@ -177,7 +182,12 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         raise ValueError(f"Roster {roster_id} not found in league {league_id}")
 
     all_players = sleeper.get_all_players()
-    week_games = schedule.get_week_games(week, season)
+    week_games, schedule_source, schedule_note = _resolve_week_games(
+        schedule=schedule,
+        week=int(week),
+        season=season,
+        tank01_api_key=config.tank01_api_key,
+    )
 
     odds_by_team: dict[str, GameOdds] = {}
     odds_available = False
@@ -207,11 +217,12 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         projection_season_type = None
 
     fantasypros_by_id: dict[str, PlayerProjection] = {}
+    fantasypros_status: str | None = None
+    fantasypros_week_rows = 0
     if config.fantasypros_api_key:
         try:
-            fantasypros_by_id = FantasyProsClient(
-                config.fantasypros_api_key
-            ).get_projections_by_sleeper_id(
+            fp_client = FantasyProsClient(config.fantasypros_api_key)
+            fantasypros_by_id = fp_client.get_projections_by_sleeper_id(
                 sleeper_players=all_players,
                 season=season,
                 week=int(week),
@@ -219,10 +230,24 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 season_type=season_type,
                 roster_player_ids=player_ids,
             )
-        except Exception:
+            fantasypros_week_rows = fp_client.last_week_projection_rows
+            if fantasypros_week_rows > 0:
+                fantasypros_status = "ok"
+            elif fp_client.last_projection_note:
+                fantasypros_status = fp_client.last_projection_note
+            else:
+                fantasypros_status = (
+                    "FantasyPros returned no matching weekly projections for this roster."
+                )
+        except PermissionError as exc:
+            fantasypros_status = str(exc)
+            fantasypros_by_id = {}
+        except Exception as exc:
+            fantasypros_status = f"FantasyPros lookup failed: {exc}"
             fantasypros_by_id = {}
 
     tank01_by_id: dict[str, PlayerProjection] = {}
+    tank01_week_rows = 0
     tank01_odds_by_team: dict[str, Tank01BookConsensus] = {}
     tank01_odds_available = False
     depth_by_id: dict = {}
@@ -236,6 +261,7 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 scoring=scoring_format,
                 roster_player_ids=player_ids,
             )
+            tank01_week_rows = tank01.last_week_projection_rows
         except Exception:
             tank01_by_id = {}
         try:
@@ -258,8 +284,8 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
     sources_available = sorted(
         {
             *(["rotowire"] if rotowire_by_id else []),
-            *(["fantasypros"] if fantasypros_by_id else []),
-            *(["tank01"] if tank01_by_id else []),
+            *(["fantasypros"] if fantasypros_week_rows > 0 else []),
+            *(["tank01"] if tank01_week_rows > 0 else []),
         }
     )
     projections_available = bool(sources_available)
@@ -396,8 +422,44 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
         leaguelogs_profile=leaguelogs_profile,
         leaguelogs_attribution=leaguelogs_attribution,
         tank01_depth_available=tank01_depth_available,
+        schedule_source=schedule_source,
+        schedule_note=schedule_note,
+        fantasypros_status=fantasypros_status,
         players=players_ctx,
     )
+
+
+def _resolve_week_games(
+    *,
+    schedule: ScheduleClient,
+    week: int,
+    season: int,
+    tank01_api_key: str | None,
+) -> tuple[dict[str, GameInfo], str | None, str | None]:
+    """Prefer ESPN when its season matches; fall back to Tank01 schedule."""
+    espn_games = schedule.get_week_games(week, season)
+    if espn_games:
+        return espn_games, "espn", schedule.last_schedule_note
+
+    notes: list[str] = []
+    if schedule.last_schedule_note:
+        notes.append(schedule.last_schedule_note)
+
+    if tank01_api_key:
+        try:
+            tank01 = Tank01Client(tank01_api_key)
+            rows = tank01.get_week_games(week=week, season=season, season_type="reg")
+            tank_games = games_from_tank01_week(rows)
+            if tank_games:
+                note = "Schedule from Tank01 getNFLGamesForWeek (ESPN unavailable or stale)."
+                if notes:
+                    note = f"{notes[0]} {note}"
+                return tank_games, "tank01", note
+        except Exception as exc:
+            notes.append(f"Tank01 schedule fallback failed: {exc}")
+
+    note = " ".join(notes) if notes else "No NFL schedule found for this week/season."
+    return {}, None, note
 
 
 def _weather_for_stadium(

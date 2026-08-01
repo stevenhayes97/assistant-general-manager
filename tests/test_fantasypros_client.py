@@ -65,18 +65,14 @@ def test_get_week_projections_parses_points_and_te_rec():
     assert session.calls[0]["params"]["scoring"] == "PPR"
 
 
-def test_get_week_projections_retries_week_0_in_preseason():
+def test_get_week_projections_does_not_retry_week_0_in_preseason():
     payloads = [
-        FakeResp({"players": []}),
         FakeResp(
             {
-                "players": [
-                    {
-                        "fpid": 1,
-                        "position_id": "WR",
-                        "stats": {"points": 10.0, "points_ppr": 12.0, "points_half": 11.0},
-                    }
-                ]
+                "players": [],
+                "public_api_limited": True,
+                "tier": "free",
+                "count": "0",
             }
         ),
     ]
@@ -92,8 +88,9 @@ def test_get_week_projections_retries_week_0_in_preseason():
     seq = SequencingSession()
     client = FantasyProsClient("k", session=seq)
     out = client.get_week_projections(2026, 1, scoring="ppr", season_type="pre")
-    assert [c["params"]["week"] for c in seq.calls] == [1, 0]
-    assert out["1"].pts_ppr == 12.0
+    assert out == {}
+    assert len(seq.calls) == 1
+    assert seq.calls[0]["params"]["week"] == 1
 
 
 def test_map_projections_to_sleeper_via_sportradar():

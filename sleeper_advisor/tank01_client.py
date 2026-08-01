@@ -101,6 +101,7 @@ class Tank01Client:
         self.api_key = api_key
         self.session = session or requests.Session()
         self.timeout = timeout
+        self.last_week_projection_rows: int = 0
 
     def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         resp = self.session.get(
@@ -115,6 +116,27 @@ class Tank01Client:
         )
         resp.raise_for_status()
         return resp.json()
+
+    def get_week_games(
+        self,
+        week: int,
+        season: int | str,
+        *,
+        season_type: str = "reg",
+    ) -> list[dict]:
+        """Schedule rows for one NFL week (``getNFLGamesForWeek``)."""
+        data = self._get(
+            "/getNFLGamesForWeek",
+            params={
+                "week": int(week),
+                "season": str(season),
+                "seasonType": season_type,
+            },
+        )
+        body = data.get("body") if isinstance(data, dict) else None
+        if not isinstance(body, list):
+            return []
+        return [row for row in body if isinstance(row, dict)]
 
     def get_id_maps(
         self, force_refresh: bool = False
@@ -184,6 +206,7 @@ class Tank01Client:
         data = self._get("/getNFLProjections", params=params)
         body = data.get("body") if isinstance(data, dict) else None
         if not isinstance(body, dict):
+            self.last_week_projection_rows = 0
             return {}
 
         out: dict[str, PlayerProjection] = {}
@@ -207,6 +230,7 @@ class Tank01Client:
                 team_abv = row.get("teamAbv") or row.get("team")
                 if team_abv:
                     out[str(team_abv).upper()] = proj
+        self.last_week_projection_rows = len(out)
         return out
 
     def get_projections_by_sleeper_id(

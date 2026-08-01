@@ -89,6 +89,26 @@ def test_describe_reception_bonuses():
     assert describe_reception_bonuses({"rec": 1.0}) == []
 
 
+def test_aggregate_projections_includes_zero_for_one_source():
+    rw = PlayerProjection(
+        source="rotowire",
+        pts_ppr=10.0,
+        pts_half_ppr=9.0,
+        pts_std=8.0,
+    )
+    fp_zero = PlayerProjection(
+        source="fantasypros",
+        pts_ppr=0.0,
+        pts_half_ppr=0.0,
+        pts_std=0.0,
+    )
+    agg = aggregate_projections([rw, fp_zero], "ppr", {"rec": 1.0})
+    assert agg is not None
+    assert agg.by_source == {"rotowire": 10.0, "fantasypros": 0.0}
+    assert agg.mean == 5.0
+    assert agg.source_label == "fantasypros+rotowire"
+
+
 def test_aggregate_projections_averages_sources_with_te_premium():
     rw = PlayerProjection(
         source="rotowire",

@@ -29,11 +29,29 @@ Add these as **Secrets** on the Cloud Agents environment (never commit them):
 |---|---|---|
 | `SLEEPER_LEAGUE_ID` | yes | From sleeper.com league URL |
 | `SLEEPER_ROSTER_ID` | yes | Numeric roster ID in that league |
-| `ODDS_API_KEY` | no | Free key from the-odds-api.com; enables game-script flags |
-| `FANTASYPROS_API_KEY` | no | FantasyPros API key; second weekly projection source |
-| `TANK01_API_KEY` | no | RapidAPI key for Tank01 NFL; projections + multi-book odds + depth charts |
+| `ODDS_API_KEY` | no | Free key from the-odds-api.com; **primary** Vegas spread/total/game-script |
+| `FANTASYPROS_API_KEY` | no | Optional **weekly fantasy projections** only; feed skipped if the week's API dataset is empty |
+| `TANK01_API_KEY` | no | RapidAPI Tank01 NFL; projections + **multi-book odds** + depth charts |
 
-When asked for start/sit advice, run the lineup-advisor flow: execute the
+### Cloud agent model split (required)
+
+The Cloud Agent default model is for **orchestration only**. For any start/sit
+or lineup recommendation:
+
+1. **Always** call the **lineup-advisor** subagent (`Task` tool,
+   `subagent_type: lineup-advisor`) — **Grok 4.5 High** per
+   `.cursor/agents/lineup-advisor.md`.
+2. The main agent may run `python3 -m sleeper_advisor.cli` for structured data,
+   but **must not** publish final lineup advice itself.
+3. Surface the subagent's answer to the user. Desktop: `/lineup-advisor …`.
+
+Only skip delegation if the subagent tool fails after retry; say so explicitly.
+
+When asked for start/sit advice, **delegate to the lineup-advisor subagent**
+(Task tool with `subagent_type: lineup-advisor`, or `/lineup-advisor` on
+desktop) so Grok 4.5 High runs the scripted flow.
+
+The subagent should run the lineup-advisor flow: execute the
 CLI for structured context, then web-search injury nuance / trends / expert
 opinion, and return recommendations with confidence levels. Do not
 fabricate injury reports or stats. Treat `projected_points` as the mean of

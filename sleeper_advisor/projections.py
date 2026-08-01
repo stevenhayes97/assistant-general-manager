@@ -151,6 +151,11 @@ class AggregatedProjection:
         return "+".join(self.sources)
 
 
+def usable_weekly_projection_points(pts: float | None) -> bool:
+    """True when a source returned a weekly point total for this player (0 is valid)."""
+    return pts is not None
+
+
 def aggregate_projections(
     projections: list[PlayerProjection],
     scoring: ScoringFormat,
@@ -160,7 +165,7 @@ def aggregate_projections(
     by_source: dict[str, float] = {}
     for proj in projections:
         pts = league_adjusted_points(proj, scoring, scoring_settings)
-        if pts is None:
+        if not usable_weekly_projection_points(pts):
             continue
         by_source[proj.source] = pts
     if not by_source:

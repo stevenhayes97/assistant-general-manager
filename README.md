@@ -30,7 +30,7 @@ that's what an LLM agent with web search is good at. So:
 | Weekly projected fantasy points | Sleeper projections (RotoWire; undocumented) + [FantasyPros API](https://www.fantasypros.com/api-data/) + [Tank01](https://rapidapi.com/tank01/api/tank01-nfl-live-in-game-real-time-statistics-nfl) | FantasyPros / Tank01 keys optional |
 | Market value / ranks + status blurbs (LLM context) | [LeagueLogs API](https://leaguelogs.com/developers) | No (attribution required) |
 | Depth-chart role (LLM context) | Tank01 `/getNFLDepthCharts` | Tank01 key optional |
-| NFL opponent, home/away, kickoff, venue | ESPN scoreboard (public) | No |
+| NFL opponent, home/away, kickoff, venue | ESPN scoreboard (public); **Tank01** `getNFLGamesForWeek` fallback when ESPN’s season year is stale | Tank01 key for future-season weeks |
 | Weather at kickoff (outdoor / retractable only) | [Open-Meteo](https://open-meteo.com/) | No |
 | Vegas spread / total / implied total / game-script flag | [The Odds API](https://the-odds-api.com/) (primary) + Tank01 multi-book median (second opinion) | Odds / Tank01 keys optional |
 

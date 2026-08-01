@@ -19,6 +19,18 @@ def to_markdown(ctx: AdvisorContext) -> str:
         + ")_",
         "",
     ]
+    if ctx.schedule_source:
+        src_line = f"> NFL schedule source: **{ctx.schedule_source}**."
+        if ctx.schedule_note:
+            src_line += f" {ctx.schedule_note}"
+        lines.append(src_line)
+        lines.append("")
+    elif ctx.schedule_note:
+        lines.append(f"> Schedule note: {ctx.schedule_note}")
+        lines.append("")
+    if ctx.fantasypros_status and ctx.fantasypros_status != "ok":
+        lines.append(f"> FantasyPros: {ctx.fantasypros_status}")
+        lines.append("")
     if not ctx.odds_available:
         lines.append(
             "> No odds API key configured (or lookup failed) -- Vegas spread/total/game-script "
@@ -59,6 +71,10 @@ def to_markdown(ctx: AdvisorContext) -> str:
             "each scored with the league PPR/half-PPR/standard bucket."
             + bonus_note
             + " Per-source values are in the RW / FP / T01 columns."
+            + " A source is omitted from the mean for a player only when that "
+            "source has **no** weekly row for them; **0.0 is a valid projection** "
+            "(e.g. injured/out). A feed is listed in sources above only when the "
+            "week's API response included projection rows (empty week = excluded)."
         )
         lines.append("")
     if ctx.leaguelogs_available:
