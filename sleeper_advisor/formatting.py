@@ -71,6 +71,9 @@ def to_markdown(ctx: AdvisorContext) -> str:
             "each scored with the league PPR/half-PPR/standard bucket."
             + bonus_note
             + " Per-source values are in the RW / FP / T01 columns."
+            + " Sources with missing, empty, or zero weekly totals are omitted from "
+            "the mean and from `projections_by_source` (FantasyPros included when "
+            "Week N rows exist)."
         )
         lines.append("")
     if ctx.leaguelogs_available:

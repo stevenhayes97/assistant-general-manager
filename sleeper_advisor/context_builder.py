@@ -23,6 +23,7 @@ from .projections import (
     aggregate_projections,
     describe_reception_bonuses,
     detect_scoring_format,
+    roster_has_usable_projections,
 )
 from .tank01_client import Tank01BookConsensus, Tank01Client
 from .schedule_client import GameInfo, ScheduleClient, games_from_tank01_week
@@ -229,7 +230,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
                 season_type=season_type,
                 roster_player_ids=player_ids,
             )
-            if fantasypros_by_id:
+            if roster_has_usable_projections(
+                fantasypros_by_id, player_ids, scoring_format, scoring_settings
+            ):
                 fantasypros_status = "ok"
             elif fp_client.last_projection_note:
                 fantasypros_status = fp_client.last_projection_note
@@ -279,9 +282,9 @@ def build_context(config: AdvisorConfig) -> AdvisorContext:
 
     sources_available = sorted(
         {
-            *(["rotowire"] if rotowire_by_id else []),
-            *(["fantasypros"] if fantasypros_by_id else []),
-            *(["tank01"] if tank01_by_id else []),
+            *(["rotowire"] if roster_has_usable_projections(rotowire_by_id, player_ids, scoring_format, scoring_settings) else []),
+            *(["fantasypros"] if roster_has_usable_projections(fantasypros_by_id, player_ids, scoring_format, scoring_settings) else []),
+            *(["tank01"] if roster_has_usable_projections(tank01_by_id, player_ids, scoring_format, scoring_settings) else []),
         }
     )
     projections_available = bool(sources_available)

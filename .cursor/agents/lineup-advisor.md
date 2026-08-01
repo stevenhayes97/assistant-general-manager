@@ -40,10 +40,14 @@ weather forecast (temp/wind/precip) when the *game venue* is outdoor or
 retractable and within forecast range (domes skip weather entirely),
 Sleeper's official injury designation, a weekly **projected_points** value
 (mean of available structured sources — RotoWire via Sleeper, FantasyPros when
-`FANTASYPROS_API_KEY` is set, and Tank01 when `TANK01_API_KEY` is set — each
+`FANTASYPROS_API_KEY` is set — **weekly fantasy point projections only** via
+`/nfl/{season}/projections`; and Tank01 when `TANK01_API_KEY` is set — each
 scored with the league's PPR / half-PPR / standard bucket **plus** reception
 bonuses like TE premium; per-source values are in `projections_by_source` /
-the RW, FP, and T01 columns), LeagueLogs **market value / ranks** and
+the RW, FP, and T01 columns). **Empty or zero weekly totals from any source
+(including FantasyPros before the season publishes rows) are excluded** from
+the mean and from reasoning — use only positive per-source values shown.
+LeagueLogs **market value / ranks** and
 **status blurbs** when available (trade/roster context and short
 injury/transaction notes for LLM reasoning — **not** weekly projections;
 see Mkt / OVR columns and Notes), Tank01 **depth-chart roles** when keyed

@@ -152,6 +152,8 @@ class FantasyProsClient:
                 pts_half = pts_std
             if pts_ppr is None and pts_half is None and pts_std is None:
                 continue
+            if (pts_ppr or 0) <= 0 and (pts_half or 0) <= 0 and (pts_std or 0) <= 0:
+                continue
 
             position = row.get("position_id") or row.get("position")
             rec = _as_float(stats.get("rec_rec"))

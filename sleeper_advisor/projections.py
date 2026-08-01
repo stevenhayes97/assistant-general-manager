@@ -151,6 +151,11 @@ class AggregatedProjection:
         return "+".join(self.sources)
 
 
+def usable_weekly_projection_points(pts: float | None) -> bool:
+    """True when a source's league-adjusted weekly total should affect the mean."""
+    return pts is not None and pts > 0
+
+
 def aggregate_projections(
     projections: list[PlayerProjection],
     scoring: ScoringFormat,
@@ -160,13 +165,30 @@ def aggregate_projections(
     by_source: dict[str, float] = {}
     for proj in projections:
         pts = league_adjusted_points(proj, scoring, scoring_settings)
-        if pts is None:
+        if not usable_weekly_projection_points(pts):
             continue
         by_source[proj.source] = pts
     if not by_source:
         return None
     mean = round(sum(by_source.values()) / len(by_source), 2)
     return AggregatedProjection(by_source=by_source, mean=mean)
+
+
+def roster_has_usable_projections(
+    by_player_id: dict[str, PlayerProjection],
+    roster_player_ids: list[str],
+    scoring: ScoringFormat,
+    scoring_settings: dict[str, Any] | None,
+) -> bool:
+    """True if at least one rostered player has a positive weekly total from this source."""
+    for pid in roster_player_ids:
+        proj = by_player_id.get(pid)
+        if proj is None:
+            continue
+        pts = league_adjusted_points(proj, scoring, scoring_settings)
+        if usable_weekly_projection_points(pts):
+            return True
+    return False
 
 
 def _bonus_count_for(proj: PlayerProjection, key: str) -> float | None:

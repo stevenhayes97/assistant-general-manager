@@ -30,7 +30,7 @@ Add these as **Secrets** on the Cloud Agents environment (never commit them):
 | `SLEEPER_LEAGUE_ID` | yes | From sleeper.com league URL |
 | `SLEEPER_ROSTER_ID` | yes | Numeric roster ID in that league |
 | `ODDS_API_KEY` | no | Free key from the-odds-api.com; **primary** Vegas spread/total/game-script |
-| `FANTASYPROS_API_KEY` | no | Optional **weekly fantasy projections** only (not betting lines); omit on free tier if unused |
+| `FANTASYPROS_API_KEY` | no | Optional **weekly fantasy projections** only (`/projections?week=N`); empty/zero rows excluded from means |
 | `TANK01_API_KEY` | no | RapidAPI Tank01 NFL; projections + **multi-book odds** (lines second opinion) + depth charts |
 
 When asked for start/sit advice, **delegate to the lineup-advisor subagent**
